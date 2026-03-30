@@ -1,5 +1,3 @@
-import sys
-
 import pymupdf4llm
 
 def extract_text_from_pdf(pdf_path: str) -> str:
