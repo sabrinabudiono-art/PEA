@@ -10,5 +10,3 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     """
     markdown_text = pymupdf4llm.to_markdown(pdf_path)
     return markdown_text
-
-print(extract_text_from_pdf("uploads/Rechnung.pdf"))
