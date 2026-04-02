@@ -2,3 +2,4 @@ pymupdf4llm
 openai
 python-dotenv
 flask-sqlalchemy
+flask
