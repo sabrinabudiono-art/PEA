@@ -196,3 +196,16 @@ def chat_with_ai(user_message):
 
     return answer
 
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    body = request.get_json(silent=True) or {}
+    question = body.get("question", "").strip()
+
+    if not question:
+        return jsonify({'error': 'No question provided'}), 400
+
+    try:
+        answer = chat_with_ai(question)
+        return jsonify({"answer": answer})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
