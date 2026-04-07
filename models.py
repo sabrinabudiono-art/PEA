@@ -45,6 +45,7 @@ class MeterReadings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     reading_date = db.Column(db.Date, nullable=False)
+    reading_value = db.Column(db.Float, nullable=False)
 
 
 class Chatbot(db.Model):
