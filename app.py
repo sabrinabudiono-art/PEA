@@ -3,6 +3,7 @@ from datetime import date
 from flask import Flask, request, render_template, jsonify
 from dotenv import load_dotenv
 from openai import OpenAI
+from sqlalchemy.sql.functions import current_user
 
 from models import (db, User, EnergyReport, EnergyContract, Appliance, MeterReadings, Chatbot)
 
@@ -318,4 +319,57 @@ def chat_with_ai():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+
+@app.route('api/meter-readings', methods=['POST'])
+def read_meter_readings():
+    readings = (
+        MeterReadings.query.filter_by(user_id=DEFAULT_USER_ID).order_by(MeterReadings.reading_date.asc()).all()
+    )
+
+    return jsonify({
+        "readings": [
+            {
+                "id": reading.id,
+                "reading_date": reading.reading_date,
+                "reading_value": reading.reading_value,
+            }
+            for reading in readings
+        ]
+    })
+
+def add_meter_reading():
+    body = request.get_json(silent=True) or {}
+    reading_date = _parse_date(body.get("reading_date"))
+    reading_value = _safe_float(body.get("reading_value"))
+
+    if not reading_date:
+        return jsonify({'error': 'Valid date required'}), 400
+    if not reading_value:
+        return jsonify({'error': 'Valid value required'}), 400
+
+    reading = MeterReadings(
+        user_id=DEFAULT_USER_ID,
+        reading_date=reading_date,
+        reading_value=reading_value,
+    )
+    db.session.add(reading)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Meter reading added",
+        "reading": {
+            "id": reading.id,
+            "reading_date": reading.reading_date,
+            "reading_value": reading.reading_value,
+        },
+    })
+
+@app.route('/api/meter-readings/<int:reading_id>', methods=['DELETE'])
+def delete_meter_reading(reading_id):
+    reading = db.session.get(MeterReadings, reading_id)
+    if not reading:
+        return jsonify({'error': 'Meter reading not found'}), 404
+    db.session.delete(reading)
+    db.session.commit()
+    return jsonify({'message': 'Meter reading deleted'}), 200
 
