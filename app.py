@@ -76,9 +76,56 @@ def save_document_to_db(doc_type, fields_dict, filepath, markdown_text):
         )
 
     db.session.add(record)
-    db.session.flush()
+    db.session.commit()
 
     return record
+
+@app.route('/api/reports', methods=['GET'])
+def list_reports():
+    reports = EnergyReport.query.filter_by(user_id=DEFAULT_USER_ID).order_by(EnergyReport.start_date.desc()).all()
+    return jsonify({'reports': [
+        {
+            "id": r.id,
+            "start_date": r.start_date.isoformat() if r.start_date else None,
+            "end_date": r.end_date.isoformat() if r.end_date else None,
+            "total_consumption_kwh": r.total_consumption_kwh,
+            "total_cost": r.total_cost,
+        }
+        for r in reports
+    ]})
+
+@app.route('/api/reports/<int:report_id>', methods=['DELETE'])
+def delete_report(report_id):
+    report = db.session.get(EnergyReport, report_id)
+    if not report:
+        return jsonify({'error': 'Report not found'}), 404
+    db.session.delete(report)
+    db.session.commit()
+    return jsonify({'message': 'Report deleted'}), 200
+
+@app.route('/api/contracts', methods=['GET'])
+def list_contracts():
+    contracts = EnergyContract.query.filter_by(user_id=DEFAULT_USER_ID).order_by(EnergyContract.start_date.desc()).all()
+    return jsonify({'contracts': [
+        {
+            "id": c.id,
+            "provider_name": c.provider_name,
+            "start_date": c.start_date.isoformat() if c.start_date else None,
+            "end_date": c.end_date.isoformat() if c.end_date else None,
+            "price_per_kwh": c.price_per_kwh,
+            "base_fee": c.base_fee,
+        }
+        for c in contracts
+    ]})
+
+@app.route('/api/contracts/<int:contract_id>', methods=['DELETE'])
+def delete_contract(contract_id):
+    contract = db.session.get(EnergyContract, contract_id)
+    if not contract:
+        return jsonify({'error': 'Contract not found'}), 404
+    db.session.delete(contract)
+    db.session.commit()
+    return jsonify({'message': 'Contract deleted'}), 200
 
 @app.route('/api/upload', methods=['POST'])
 def upload():
@@ -125,12 +172,15 @@ client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 def build_chat_context():
     lines = []
 
+    def fmt_date(d):
+        return d.strftime('%Y-%m-%d') if d else 'N/A'
+
     reports = EnergyReport.query.filter_by(user_id=DEFAULT_USER_ID).all()
     if reports:
         lines.append("Energy Reports")
         for report in reports:
             lines.append(
-                f" {report.start_date.strftime('%Y-%m-%d')} - {report.end_date.strftime('%Y-%m-%d')}"
+                f" {fmt_date(report.start_date)} - {fmt_date(report.end_date)}"
                 f" {report.total_consumption_kwh} kWh, {report.total_cost} Euro."
             )
 
@@ -139,8 +189,8 @@ def build_chat_context():
         lines.append("Energy Contracts")
         for contract in contracts:
             lines.append(
-                f"{contract.provider_name} "
-                f"{contract.start_date.strftime('%Y-%m-%d')} - {contract.end_date.strftime('%Y-%m-%d')} "
+                f"{contract.provider_name or 'Unknown'} "
+                f"{fmt_date(contract.start_date)} - {fmt_date(contract.end_date)} "
                 f"{contract.price_per_kwh} Euro/kWh, base fee {contract.base_fee} Euro."
             )
 
@@ -158,7 +208,7 @@ def build_chat_context():
         lines.append("Meter Readings")
         for reading in readings:
             lines.append(
-                f"{reading.reading_date.strftime('%Y-%m-%d')}: {reading.reading_value} kWh."
+                f"{fmt_date(reading.reading_date)}: {reading.reading_value} kWh."
             )
 
     return "\n".join(lines)
@@ -223,7 +273,7 @@ def list_appliances():
     appliances = Appliance.query.filter_by(user_id=DEFAULT_USER_ID).all()
     return jsonify({'appliances': [
         {
-            "id": appliance.appliance_id,
+            "id": appliance.id,
             "appliance_name": appliance.appliance_name,
             "appliance_type": appliance.appliance_type,
             "monthly_kwh_consumption": appliance.monthly_kwh_consumption,
@@ -250,7 +300,7 @@ def add_appliance():
     return jsonify({
         "message": "Appliance added",
         "appliance": {
-        "id": appliance.appliance_id,
+        "id": appliance.id,
         "appliance_name": appliance.appliance_name,
         "appliance_type": appliance.appliance_type,
         "monthly_kwh_consumption": appliance.monthly_kwh_consumption,
@@ -276,7 +326,7 @@ def update_appliance(appliance_id):
     return jsonify({
         "message": "Appliance updated",
         "appliance": {
-            "id": appliance.appliance_id,
+            "id": appliance.id,
             "appliance_name": appliance.appliance_name,
             "appliance_type": appliance.appliance_type,
             "monthly_kwh_consumption": appliance.monthly_kwh_consumption,
@@ -363,6 +413,34 @@ def add_meter_reading():
         "reading": {
             "id": reading.id,
             "reading_date": reading.reading_date,
+            "reading_value": reading.reading_value,
+        },
+    })
+
+@app.route('/api/meter-readings/<int:reading_id>', methods=['PUT'])
+def update_meter_reading(reading_id):
+    reading = db.session.get(MeterReadings, reading_id)
+    if not reading:
+        return jsonify({'error': 'Meter reading not found'}), 404
+
+    body = request.get_json(silent=True) or {}
+    new_date = _parse_date(body.get("reading_date"))
+    new_value = _safe_float(body.get("reading_value"))
+
+    if not new_date:
+        return jsonify({'error': 'Valid date required'}), 400
+    if new_value is None:
+        return jsonify({'error': 'Valid value required'}), 400
+
+    reading.reading_date = new_date
+    reading.reading_value = new_value
+    db.session.commit()
+
+    return jsonify({
+        "message": "Meter reading updated",
+        "reading": {
+            "id": reading.id,
+            "reading_date": reading.reading_date.isoformat(),
             "reading_value": reading.reading_value,
         },
     })

@@ -76,6 +76,55 @@
                 <p>Log meter readings over time and monitor your consumption trends.</p>
             </div>
         </div>
+
+        <!-- Uploaded Reports -->
+        <div class="card">
+            <div class="flex-between mb-1">
+                <h2 class="card-title" style="margin-bottom:0"><span class="card-icon">📋</span> Energy Reports</h2>
+            </div>
+            <div id="reportsTableWrap">
+                <table class="data-table" id="reportsTable">
+                    <thead>
+                        <tr>
+                            <th>Period</th>
+                            <th>Consumption</th>
+                            <th>Cost</th>
+                            <th style="width:80px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsBody"></tbody>
+                </table>
+                <div class="empty-state" id="reportsEmpty">
+                    <span class="empty-icon">📋</span>
+                    <p>No energy reports uploaded yet. Go to <strong>Upload</strong> to add one.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Uploaded Contracts -->
+        <div class="card">
+            <div class="flex-between mb-1">
+                <h2 class="card-title" style="margin-bottom:0"><span class="card-icon">📝</span> Energy Contracts</h2>
+            </div>
+            <div id="contractsTableWrap">
+                <table class="data-table" id="contractsTable">
+                    <thead>
+                        <tr>
+                            <th>Provider</th>
+                            <th>Period</th>
+                            <th>Price/kWh</th>
+                            <th>Base Fee</th>
+                            <th style="width:80px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contractsBody"></tbody>
+                </table>
+                <div class="empty-state" id="contractsEmpty">
+                    <span class="empty-icon">📝</span>
+                    <p>No energy contracts uploaded yet. Go to <strong>Upload</strong> to add one.</p>
+                </div>
+            </div>
+        </div>
     </section>
 
     <!-- ============================================================ -->
@@ -217,6 +266,7 @@
             <div id="meterFormStatus" class="status-msg"></div>
 
             <form id="meterForm" class="mb-2">
+                <input type="hidden" id="meterEditId" value="">
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label" for="meterDate">Reading Date</label>
@@ -226,8 +276,9 @@
                         <label class="form-label" for="meterValue">Value (kWh)</label>
                         <input class="form-input" id="meterValue" type="number" step="0.01" min="0" placeholder="e.g. 12345.67" required>
                     </div>
-                    <div class="form-group" style="display:flex;align-items:flex-end">
-                        <button type="submit" class="btn btn-primary">+ Add Reading</button>
+                    <div class="form-group" style="display:flex;align-items:flex-end;gap:0.5rem">
+                        <button type="submit" class="btn btn-primary" id="meterSubmitBtn">+ Add Reading</button>
+                        <button type="button" class="btn btn-secondary hidden" id="meterCancelEditBtn">Cancel</button>
                     </div>
                 </div>
             </form>
@@ -238,7 +289,7 @@
                         <tr>
                             <th>Date</th>
                             <th>Value (kWh)</th>
-                            <th style="width:80px">Actions</th>
+                            <th style="width:100px">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="meterBody"></tbody>
@@ -276,10 +327,14 @@
             document.getElementById('tab-' + target).classList.add('active');
 
             // Load data when switching to certain tabs
+            if (target === 'dashboard') loadDashboardData();
             if (target === 'appliances') loadAppliances();
             if (target === 'meter') loadMeterReadings();
         });
     });
+
+    // Load dashboard data on initial page load
+    loadDashboardData();
 
     /* ----------------------------------------------------------------
        UTILITY HELPERS
@@ -298,6 +353,96 @@
         if (!res.ok) throw new Error(data.error || 'Something went wrong');
         return data;
     }
+
+    /* ----------------------------------------------------------------
+       DASHBOARD — REPORTS & CONTRACTS
+    ---------------------------------------------------------------- */
+    const reportsBody = document.getElementById('reportsBody');
+    const reportsEmpty = document.getElementById('reportsEmpty');
+    const contractsBody = document.getElementById('contractsBody');
+    const contractsEmpty = document.getElementById('contractsEmpty');
+
+    async function loadDashboardData() {
+        try {
+            const [rData, cData] = await Promise.all([
+                api('/api/reports'),
+                api('/api/contracts'),
+            ]);
+            renderReports(rData.reports);
+            renderContracts(cData.contracts);
+        } catch (err) {
+            console.error('Failed to load dashboard data:', err);
+        }
+    }
+
+    function renderReports(reports) {
+        reportsBody.innerHTML = '';
+        if (!reports.length) {
+            reportsEmpty.classList.remove('hidden');
+            return;
+        }
+        reportsEmpty.classList.add('hidden');
+        reports.forEach(r => {
+            const tr = document.createElement('tr');
+            const period = (r.start_date && r.end_date)
+                ? `${r.start_date} → ${r.end_date}`
+                : r.start_date || r.end_date || '—';
+            tr.innerHTML = `
+                <td>${period}</td>
+                <td>${r.total_consumption_kwh != null ? r.total_consumption_kwh + ' kWh' : '—'}</td>
+                <td>${r.total_cost != null ? '€' + r.total_cost.toFixed(2) : '—'}</td>
+                <td>
+                    <button class="btn btn-danger btn-icon btn-sm" title="Delete" onclick="deleteReport(${r.id})">🗑️</button>
+                </td>
+            `;
+            reportsBody.appendChild(tr);
+        });
+    }
+
+    function renderContracts(contracts) {
+        contractsBody.innerHTML = '';
+        if (!contracts.length) {
+            contractsEmpty.classList.remove('hidden');
+            return;
+        }
+        contractsEmpty.classList.add('hidden');
+        contracts.forEach(c => {
+            const tr = document.createElement('tr');
+            const period = (c.start_date && c.end_date)
+                ? `${c.start_date} → ${c.end_date}`
+                : c.start_date || c.end_date || '—';
+            tr.innerHTML = `
+                <td>${escapeHtml(c.provider_name || '—')}</td>
+                <td>${period}</td>
+                <td>${c.price_per_kwh != null ? '€' + c.price_per_kwh.toFixed(4) : '—'}</td>
+                <td>${c.base_fee != null ? '€' + c.base_fee.toFixed(2) : '—'}</td>
+                <td>
+                    <button class="btn btn-danger btn-icon btn-sm" title="Delete" onclick="deleteContract(${c.id})">🗑️</button>
+                </td>
+            `;
+            contractsBody.appendChild(tr);
+        });
+    }
+
+    window.deleteReport = async function(id) {
+        if (!confirm('Delete this energy report?')) return;
+        try {
+            await api(`/api/reports/${id}`, { method: 'DELETE' });
+            loadDashboardData();
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    };
+
+    window.deleteContract = async function(id) {
+        if (!confirm('Delete this energy contract?')) return;
+        try {
+            await api(`/api/contracts/${id}`, { method: 'DELETE' });
+            loadDashboardData();
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    };
 
     /* ----------------------------------------------------------------
        FILE UPLOAD
@@ -618,28 +763,63 @@
                 <td>${r.reading_date}</td>
                 <td>${r.reading_value}</td>
                 <td>
-                    <button class="btn btn-danger btn-icon btn-sm" title="Delete" onclick="deleteMeterReading(${r.id})">🗑️</button>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary btn-icon btn-sm" title="Edit" onclick="editMeterReading(${r.id}, '${r.reading_date}', ${r.reading_value})">✏️</button>
+                        <button class="btn btn-danger btn-icon btn-sm" title="Delete" onclick="deleteMeterReading(${r.id})">🗑️</button>
+                    </div>
                 </td>
             `;
             meterBody.appendChild(tr);
         });
     }
 
+    const meterSubmitBtn = document.getElementById('meterSubmitBtn');
+    const meterCancelEditBtn = document.getElementById('meterCancelEditBtn');
+    const meterEditId = document.getElementById('meterEditId');
+
+    function resetMeterForm() {
+        meterForm.reset();
+        meterEditId.value = '';
+        meterSubmitBtn.textContent = '+ Add Reading';
+        meterCancelEditBtn.classList.add('hidden');
+    }
+
+    meterCancelEditBtn.addEventListener('click', resetMeterForm);
+
+    window.editMeterReading = function(id, dateStr, value) {
+        meterEditId.value = id;
+        document.getElementById('meterDate').value = dateStr;
+        document.getElementById('meterValue').value = value;
+        meterSubmitBtn.textContent = 'Update Reading';
+        meterCancelEditBtn.classList.remove('hidden');
+        meterForm.scrollIntoView({ behavior: 'smooth' });
+    };
+
     meterForm.addEventListener('submit', async e => {
         e.preventDefault();
+        const editId = meterEditId.value;
         const body = {
             reading_date: document.getElementById('meterDate').value,
             reading_value: parseFloat(document.getElementById('meterValue').value),
         };
 
         try {
-            await api('/api/meter-readings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-            showStatus(meterFormStatus, '✅ Meter reading added!', 'success');
-            meterForm.reset();
+            if (editId) {
+                await api(`/api/meter-readings/${editId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                showStatus(meterFormStatus, '✅ Meter reading updated!', 'success');
+            } else {
+                await api('/api/meter-readings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                showStatus(meterFormStatus, '✅ Meter reading added!', 'success');
+            }
+            resetMeterForm();
             loadMeterReadings();
         } catch (err) {
             showStatus(meterFormStatus, '❌ ' + err.message, 'error');
