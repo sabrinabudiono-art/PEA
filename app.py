@@ -3,7 +3,6 @@ from datetime import date
 from flask import Flask, request, render_template, jsonify
 from dotenv import load_dotenv
 from openai import OpenAI
-from sqlalchemy.sql.functions import current_user
 
 from models import (db, User, EnergyReport, EnergyContract, Appliance, MeterReadings, Chatbot)
 
@@ -83,7 +82,7 @@ def save_document_to_db(doc_type, fields_dict, filepath, markdown_text):
 
 @app.route('/api/upload', methods=['POST'])
 def upload():
-    if "file" not in request.files["file"]:
+    if "file" not in request.files:
         return jsonify({'error': 'No file provided'}), 400
 
     file = request.files["file"]
@@ -140,9 +139,9 @@ def build_chat_context():
         lines.append("Energy Contracts")
         for contract in contracts:
             lines.append(
-                f"{contract.provider_name}"
-                f"{contract.start_date.strftime('%Y-%m-%d')} - {contract.end_date.strftime('%Y-%m-%d')}"
-                f"{contract.price_per_kwh}Euro/kWh, base fee {contract.base_fee_kwh} Euro."
+                f"{contract.provider_name} "
+                f"{contract.start_date.strftime('%Y-%m-%d')} - {contract.end_date.strftime('%Y-%m-%d')} "
+                f"{contract.price_per_kwh} Euro/kWh, base fee {contract.base_fee} Euro."
             )
 
     appliances = Appliance.query.filter_by(user_id=DEFAULT_USER_ID).all()
@@ -150,7 +149,7 @@ def build_chat_context():
         lines.append("Appliances")
         for appliance in appliances:
             lines.append(
-                f"{appliance.appliance.provider_name} ({appliance.appliance_type}):"
+                f"{appliance.appliance_name} ({appliance.appliance_type}): "
                 f"{appliance.monthly_kwh_consumption} kWh/month."
             )
 
@@ -159,8 +158,10 @@ def build_chat_context():
         lines.append("Meter Readings")
         for reading in readings:
             lines.append(
-                f"{reading.reading_date.strftime('%Y-%m-%d')}: {reading.reading_value} kWh.."
+                f"{reading.reading_date.strftime('%Y-%m-%d')}: {reading.reading_value} kWh."
             )
+
+    return "\n".join(lines)
 
 def chat_with_ai(user_message):
     db.session.add(Chatbot(
@@ -169,7 +170,7 @@ def chat_with_ai(user_message):
 
     context = build_chat_context()
     history = (
-        Chatbot.query.filter_by(user_id=DEFAULT_USER_ID).order_by(Chatbot.created_at).desc().limit(20).all()
+        Chatbot.query.filter_by(user_id=DEFAULT_USER_ID).order_by(Chatbot.created_at.desc()).limit(20).all()
     )
     history.reverse()
 
@@ -217,7 +218,7 @@ def chatbot_clear():
     db.session.commit()
     return jsonify({'message': 'Successfully cleared chatbot'}), 200
 
-@app.route('/api/appliances', methods=['POST'])
+@app.route('/api/appliances', methods=['GET'])
 def list_appliances():
     appliances = Appliance.query.filter_by(user_id=DEFAULT_USER_ID).all()
     return jsonify({'appliances': [
@@ -230,6 +231,7 @@ def list_appliances():
         for appliance in appliances]
     })
 
+@app.route('/api/appliances', methods=['POST'])
 def add_appliance():
     body = request.get_json(silent=True) or {}
     name = body.get("appliance_name", "").strip()
@@ -240,7 +242,7 @@ def add_appliance():
         user_id=DEFAULT_USER_ID,
         appliance_name=name,
         appliance_type=body.get("appliance_type", "").strip() or None,
-        monthly_kwh_consumption=_safe_float(body.get("C")),
+        monthly_kwh_consumption=_safe_float(body.get("monthly_kwh_consumption")),
     )
     db.session.add(appliance)
     db.session.commit()
@@ -291,7 +293,7 @@ def delete_appliance(appliance_id):
     return jsonify({'message': 'Appliance deleted'}), 200
 
 @app.route('/api/appliances/chat', methods=['POST'])
-def chat_with_ai():
+def appliance_chat():
     body = request.get_json(silent=True) or {}
     question = body.get("question", "").strip()
     if not question:
@@ -320,7 +322,7 @@ def chat_with_ai():
         return jsonify({'error': str(e)}), 400
 
 
-@app.route('api/meter-readings', methods=['POST'])
+@app.route('/api/meter-readings', methods=['GET'])
 def read_meter_readings():
     readings = (
         MeterReadings.query.filter_by(user_id=DEFAULT_USER_ID).order_by(MeterReadings.reading_date.asc()).all()
@@ -337,6 +339,7 @@ def read_meter_readings():
         ]
     })
 
+@app.route('/api/meter-readings', methods=['POST'])
 def add_meter_reading():
     body = request.get_json(silent=True) or {}
     reading_date = _parse_date(body.get("reading_date"))
