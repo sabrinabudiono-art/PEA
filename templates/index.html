@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Personal Energy Assistant — Upload energy bills, chat with AI, track appliances and meter readings to reduce your energy costs.">
+    <title>PEA — Personal Energy Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+    <!-- ====== HEADER ====== -->
+    <header class="app-header">
+        <div class="logo">
+            <span class="icon">⚡</span>
+            <span><span class="accent">P</span>ersonal <span class="accent">E</span>nergy <span class="accent">A</span>ssistant</span>
+        </div>
+        <p class="tagline">Upload bills · Chat with AI · Track your energy</p>
+    </header>
+
+    <!-- ====== TAB NAVIGATION ====== -->
+    <nav class="tab-nav" id="tabNav">
+        <button class="tab-btn active" data-tab="dashboard">
+            <span class="tab-icon">🏠</span>
+            <span class="tab-label">Dashboard</span>
+        </button>
+        <button class="tab-btn" data-tab="upload">
+            <span class="tab-icon">📄</span>
+            <span class="tab-label">Upload</span>
+        </button>
+        <button class="tab-btn" data-tab="chat">
+            <span class="tab-icon">💬</span>
+            <span class="tab-label">Chat</span>
+        </button>
+        <button class="tab-btn" data-tab="appliances">
+            <span class="tab-icon">🔌</span>
+            <span class="tab-label">Appliances</span>
+        </button>
+        <button class="tab-btn" data-tab="meter">
+            <span class="tab-icon">📊</span>
+            <span class="tab-label">Meter</span>
+        </button>
+    </nav>
+
+    <!-- ============================================================ -->
+    <!--                        DASHBOARD TAB                         -->
+    <!-- ============================================================ -->
+    <section class="tab-content active" id="tab-dashboard">
+        <div class="hero">
+            <h2><span class="wave">👋</span> Welcome to PEA</h2>
+            <p>Your intelligent companion for understanding and reducing your household energy consumption. Get started by exploring the features below.</p>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <span class="f-icon">📄</span>
+                <h3>Upload Bills</h3>
+                <p>Upload energy PDFs and let AI extract the key data automatically.</p>
+            </div>
+            <div class="feature-card">
+                <span class="f-icon">💬</span>
+                <h3>AI Chat</h3>
+                <p>Ask questions about your energy usage and get personalized saving tips.</p>
+            </div>
+            <div class="feature-card">
+                <span class="f-icon">🔌</span>
+                <h3>Appliances</h3>
+                <p>Track your appliances and estimate their monthly energy consumption.</p>
+            </div>
+            <div class="feature-card">
+                <span class="f-icon">📊</span>
+                <h3>Meter Readings</h3>
+                <p>Log meter readings over time and monitor your consumption trends.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!--                         UPLOAD TAB                           -->
+    <!-- ============================================================ -->
+    <section class="tab-content" id="tab-upload">
+        <div class="card">
+            <h2 class="card-title"><span class="card-icon">📄</span> Upload Energy Document</h2>
+            <p class="text-muted mb-2">Upload an energy bill or contract as PDF. Our AI will automatically extract the relevant data.</p>
+
+            <div class="dropzone" id="dropzone">
+                <span class="dz-icon">📁</span>
+                <p class="dz-text"><strong>Click to browse</strong> or drag & drop</p>
+                <p class="dz-subtext">PDF files only · Max 16 MB</p>
+                <input type="file" id="fileInput" accept=".pdf">
+            </div>
+
+            <div id="uploadStatus" class="status-msg mt-2"></div>
+
+            <div id="uploadResult" class="upload-result hidden">
+                <div class="flex-between mb-1">
+                    <span class="result-badge" id="docTypeBadge"></span>
+                </div>
+                <ul class="field-list" id="fieldList"></ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!--                          CHAT TAB                            -->
+    <!-- ============================================================ -->
+    <section class="tab-content" id="tab-chat">
+        <div class="card">
+            <div class="flex-between mb-1">
+                <h2 class="card-title" style="margin-bottom:0"><span class="card-icon">💬</span> Energy AI Chat</h2>
+                <button class="btn btn-danger btn-sm" id="clearChatBtn" title="Clear chat history">🗑️ Clear</button>
+            </div>
+
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-msg assistant">
+                        <div class="chat-avatar">🤖</div>
+                        <div class="chat-bubble">Hi! I'm your Personal Energy Assistant. Ask me anything about your energy usage, bills, or how to save money on electricity. 🌿</div>
+                    </div>
+                </div>
+
+                <div class="chat-input-row">
+                    <input type="text" class="form-input" id="chatInput" placeholder="Ask about your energy usage…" autocomplete="off">
+                    <button class="btn btn-primary" id="chatSendBtn">Send</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!--                       APPLIANCES TAB                         -->
+    <!-- ============================================================ -->
+    <section class="tab-content" id="tab-appliances">
+
+        <!-- Appliance List -->
+        <div class="card">
+            <div class="flex-between mb-1">
+                <h2 class="card-title" style="margin-bottom:0"><span class="card-icon">🔌</span> My Appliances</h2>
+                <button class="btn btn-primary btn-sm" id="showAddApplianceBtn">+ Add</button>
+            </div>
+
+            <div id="appliancesTableWrap">
+                <table class="data-table" id="appliancesTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>kWh / month</th>
+                            <th style="width:100px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="appliancesBody"></tbody>
+                </table>
+                <div class="empty-state" id="appliancesEmpty">
+                    <span class="empty-icon">🔌</span>
+                    <p>No appliances yet. Add one to start tracking.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add / Edit Appliance Form -->
+        <div class="card hidden" id="applianceFormCard">
+            <h2 class="card-title" id="applianceFormTitle"><span class="card-icon">➕</span> Add Appliance</h2>
+            <div id="applianceFormStatus" class="status-msg"></div>
+            <form id="applianceForm">
+                <input type="hidden" id="appEditId" value="">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="appName">Appliance Name</label>
+                        <input class="form-input" id="appName" placeholder="e.g. Samsung Fridge RT38" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="appType">Type</label>
+                        <input class="form-input" id="appType" placeholder="e.g. Refrigerator">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="appKwh">kWh / month</label>
+                        <input class="form-input" id="appKwh" type="number" step="0.1" min="0" placeholder="e.g. 30">
+                    </div>
+                </div>
+                <div class="btn-group mt-1">
+                    <button type="submit" class="btn btn-primary" id="appFormSubmitBtn">Add Appliance</button>
+                    <button type="button" class="btn btn-secondary" id="appFormCancelBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- AI Consumption Estimator -->
+        <div class="card">
+            <h2 class="card-title"><span class="card-icon">🤖</span> AI Consumption Estimator</h2>
+            <p class="text-muted mb-2">Not sure how much energy an appliance uses? Ask the AI!</p>
+            <div class="form-row">
+                <div class="form-group" style="flex:1">
+                    <input class="form-input" id="applianceChatInput" placeholder="e.g. How much energy does a Bosch Serie 6 washing machine use if I run 4 loads a week?">
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm" id="applianceChatBtn">Estimate</button>
+            <div id="applianceChatResult" class="mt-2 hidden">
+                <div class="chat-msg assistant" style="max-width:100%">
+                    <div class="chat-avatar">🤖</div>
+                    <div class="chat-bubble" id="applianceChatAnswer"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!--                      METER READINGS TAB                      -->
+    <!-- ============================================================ -->
+    <section class="tab-content" id="tab-meter">
+        <div class="card">
+            <h2 class="card-title"><span class="card-icon">📊</span> Meter Readings</h2>
+
+            <div id="meterFormStatus" class="status-msg"></div>
+
+            <form id="meterForm" class="mb-2">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="meterDate">Reading Date</label>
+                        <input class="form-input" id="meterDate" type="date" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="meterValue">Value (kWh)</label>
+                        <input class="form-input" id="meterValue" type="number" step="0.01" min="0" placeholder="e.g. 12345.67" required>
+                    </div>
+                    <div class="form-group" style="display:flex;align-items:flex-end">
+                        <button type="submit" class="btn btn-primary">+ Add Reading</button>
+                    </div>
+                </div>
+            </form>
+
+            <div id="meterTableWrap">
+                <table class="data-table" id="meterTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Value (kWh)</th>
+                            <th style="width:80px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="meterBody"></tbody>
+                </table>
+                <div class="empty-state" id="meterEmpty">
+                    <span class="empty-icon">📊</span>
+                    <p>No meter readings yet. Add one above.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</div><!-- /app-wrapper -->
+
+
+<!-- ================================================================ -->
+<!--                         JAVASCRIPT                               -->
+<!-- ================================================================ -->
+<script>
+(() => {
+    'use strict';
+
+    /* ----------------------------------------------------------------
+       TAB SWITCHING
+    ---------------------------------------------------------------- */
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.tab;
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + target).classList.add('active');
+
+            // Load data when switching to certain tabs
+            if (target === 'appliances') loadAppliances();
+            if (target === 'meter') loadMeterReadings();
+        });
+    });
+
+    /* ----------------------------------------------------------------
+       UTILITY HELPERS
+    ---------------------------------------------------------------- */
+    function showStatus(el, msg, type) {
+        el.textContent = msg;
+        el.className = 'status-msg show ' + type;
+        if (type === 'success') {
+            setTimeout(() => { el.classList.remove('show'); }, 4000);
+        }
+    }
+
+    async function api(url, options = {}) {
+        const res = await fetch(url, options);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Something went wrong');
+        return data;
+    }
+
+    /* ----------------------------------------------------------------
+       FILE UPLOAD
+    ---------------------------------------------------------------- */
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const uploadResult = document.getElementById('uploadResult');
+
+    // Drag-over visual
+    ['dragenter', 'dragover'].forEach(evt => {
+        dropzone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropzone.classList.add('drag-over');
+        });
+    });
+    ['dragleave', 'drop'].forEach(evt => {
+        dropzone.addEventListener(evt, e => {
+            e.preventDefault();
+            dropzone.classList.remove('drag-over');
+        });
+    });
+
+    dropzone.addEventListener('drop', e => {
+        const files = e.dataTransfer.files;
+        if (files.length) uploadFile(files[0]);
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) uploadFile(fileInput.files[0]);
+    });
+
+    async function uploadFile(file) {
+        if (!file.name.endsWith('.pdf')) {
+            showStatus(uploadStatus, '❌ Only PDF files are allowed.', 'error');
+            return;
+        }
+
+        showStatus(uploadStatus, '⏳ Uploading and analyzing…', 'success');
+        uploadResult.classList.add('hidden');
+
+        const form = new FormData();
+        form.append('file', file);
+
+        try {
+            const data = await api('/api/upload', { method: 'POST', body: form });
+            showStatus(uploadStatus, '✅ ' + data.message, 'success');
+
+            // Show extracted fields
+            const badge = document.getElementById('docTypeBadge');
+            badge.textContent = data.doc_type;
+            badge.className = 'result-badge ' + data.doc_type;
+
+            const fieldList = document.getElementById('fieldList');
+            fieldList.innerHTML = '';
+            for (const [key, value] of Object.entries(data.extracted)) {
+                const li = document.createElement('li');
+                li.innerHTML = `<span class="field-name">${key.replace(/_/g, ' ')}</span><span class="field-value">${value ?? '—'}</span>`;
+                fieldList.appendChild(li);
+            }
+            uploadResult.classList.remove('hidden');
+        } catch (err) {
+            showStatus(uploadStatus, '❌ ' + err.message, 'error');
+        }
+
+        fileInput.value = '';
+    }
+
+    /* ----------------------------------------------------------------
+       AI CHAT
+    ---------------------------------------------------------------- */
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const clearChatBtn = document.getElementById('clearChatBtn');
+
+    function addChatMsg(role, text) {
+        const div = document.createElement('div');
+        div.className = 'chat-msg ' + role;
+        const avatar = role === 'user' ? '👤' : '🤖';
+        div.innerHTML = `
+            <div class="chat-avatar">${avatar}</div>
+            <div class="chat-bubble">${escapeHtml(text)}</div>
+        `;
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return div;
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    async function sendChat() {
+        const question = chatInput.value.trim();
+        if (!question) return;
+
+        addChatMsg('user', question);
+        chatInput.value = '';
+        chatSendBtn.disabled = true;
+
+        // Typing indicator
+        const typing = addChatMsg('assistant', '...');
+        typing.querySelector('.chat-bubble').classList.add('loading-dots');
+
+        try {
+            const data = await api('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question }),
+            });
+            typing.remove();
+            addChatMsg('assistant', data.answer);
+        } catch (err) {
+            typing.remove();
+            addChatMsg('assistant', '❌ Error: ' + err.message);
+        }
+
+        chatSendBtn.disabled = false;
+        chatInput.focus();
+    }
+
+    chatSendBtn.addEventListener('click', sendChat);
+    chatInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+    });
+
+    clearChatBtn.addEventListener('click', async () => {
+        if (!confirm('Clear all chat history?')) return;
+        try {
+            await api('/api/chatbot/clear', { method: 'DELETE' });
+            chatMessages.innerHTML = '';
+            addChatMsg('assistant', 'Chat history cleared. How can I help you? 🌿');
+        } catch (err) {
+            alert('Error clearing chat: ' + err.message);
+        }
+    });
+
+    /* ----------------------------------------------------------------
+       APPLIANCES
+    ---------------------------------------------------------------- */
+    const appliancesBody = document.getElementById('appliancesBody');
+    const appliancesEmpty = document.getElementById('appliancesEmpty');
+    const applianceFormCard = document.getElementById('applianceFormCard');
+    const applianceForm = document.getElementById('applianceForm');
+    const applianceFormTitle = document.getElementById('applianceFormTitle');
+    const appFormSubmitBtn = document.getElementById('appFormSubmitBtn');
+    const applianceFormStatus = document.getElementById('applianceFormStatus');
+
+    async function loadAppliances() {
+        try {
+            const data = await api('/api/appliances');
+            renderAppliances(data.appliances);
+        } catch (err) {
+            console.error('Failed to load appliances:', err);
+        }
+    }
+
+    function renderAppliances(appliances) {
+        appliancesBody.innerHTML = '';
+        if (!appliances.length) {
+            appliancesEmpty.classList.remove('hidden');
+            return;
+        }
+        appliancesEmpty.classList.add('hidden');
+
+        appliances.forEach(a => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${escapeHtml(a.appliance_name)}</td>
+                <td>${escapeHtml(a.appliance_type || '—')}</td>
+                <td>${a.monthly_kwh_consumption ?? '—'}</td>
+                <td>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary btn-icon btn-sm" title="Edit" onclick="editAppliance(${a.id}, '${escapeAttr(a.appliance_name)}', '${escapeAttr(a.appliance_type || '')}', ${a.monthly_kwh_consumption ?? 0})">✏️</button>
+                        <button class="btn btn-danger btn-icon btn-sm" title="Delete" onclick="deleteAppliance(${a.id})">🗑️</button>
+                    </div>
+                </td>
+            `;
+            appliancesBody.appendChild(tr);
+        });
+    }
+
+    // Make helpers globally accessible for inline onclick
+    window.escapeAttr = function(str) {
+        return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    };
+
+    document.getElementById('showAddApplianceBtn').addEventListener('click', () => {
+        document.getElementById('appEditId').value = '';
+        applianceForm.reset();
+        applianceFormTitle.innerHTML = '<span class="card-icon">➕</span> Add Appliance';
+        appFormSubmitBtn.textContent = 'Add Appliance';
+        applianceFormCard.classList.remove('hidden');
+    });
+
+    document.getElementById('appFormCancelBtn').addEventListener('click', () => {
+        applianceFormCard.classList.add('hidden');
+        applianceFormStatus.classList.remove('show');
+    });
+
+    window.editAppliance = function(id, name, type, kwh) {
+        document.getElementById('appEditId').value = id;
+        document.getElementById('appName').value = name;
+        document.getElementById('appType').value = type;
+        document.getElementById('appKwh').value = kwh;
+        applianceFormTitle.innerHTML = '<span class="card-icon">✏️</span> Edit Appliance';
+        appFormSubmitBtn.textContent = 'Update Appliance';
+        applianceFormCard.classList.remove('hidden');
+        applianceFormCard.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    applianceForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const editId = document.getElementById('appEditId').value;
+        const body = {
+            appliance_name: document.getElementById('appName').value.trim(),
+            appliance_type: document.getElementById('appType').value.trim(),
+            monthly_kwh_consumption: parseFloat(document.getElementById('appKwh').value) || 0,
+        };
+
+        try {
+            if (editId) {
+                await api(`/api/appliances/${editId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                showStatus(applianceFormStatus, '✅ Appliance updated!', 'success');
+            } else {
+                await api('/api/appliances', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                showStatus(applianceFormStatus, '✅ Appliance added!', 'success');
+            }
+            applianceForm.reset();
+            document.getElementById('appEditId').value = '';
+            applianceFormCard.classList.add('hidden');
+            applianceFormStatus.classList.remove('show');
+            loadAppliances();
+        } catch (err) {
+            showStatus(applianceFormStatus, '❌ ' + err.message, 'error');
+        }
+    });
+
+    window.deleteAppliance = async function(id) {
+        if (!confirm('Delete this appliance?')) return;
+        try {
+            await api(`/api/appliances/${id}`, { method: 'DELETE' });
+            loadAppliances();
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    };
+
+    // AI Estimator
+    const applianceChatBtn = document.getElementById('applianceChatBtn');
+    const applianceChatInput = document.getElementById('applianceChatInput');
+    const applianceChatResult = document.getElementById('applianceChatResult');
+    const applianceChatAnswer = document.getElementById('applianceChatAnswer');
+
+    applianceChatBtn.addEventListener('click', async () => {
+        const question = applianceChatInput.value.trim();
+        if (!question) return;
+        applianceChatBtn.disabled = true;
+        applianceChatBtn.textContent = 'Thinking…';
+        applianceChatResult.classList.add('hidden');
+
+        try {
+            const data = await api('/api/appliances/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question }),
+            });
+            applianceChatAnswer.textContent = data.answer;
+            applianceChatResult.classList.remove('hidden');
+        } catch (err) {
+            applianceChatAnswer.textContent = '❌ ' + err.message;
+            applianceChatResult.classList.remove('hidden');
+        }
+
+        applianceChatBtn.disabled = false;
+        applianceChatBtn.textContent = 'Estimate';
+    });
+
+    /* ----------------------------------------------------------------
+       METER READINGS
+    ---------------------------------------------------------------- */
+    const meterBody = document.getElementById('meterBody');
+    const meterEmpty = document.getElementById('meterEmpty');
+    const meterForm = document.getElementById('meterForm');
+    const meterFormStatus = document.getElementById('meterFormStatus');
+
+    async function loadMeterReadings() {
+        try {
+            const data = await api('/api/meter-readings');
+            renderReadings(data.readings);
+        } catch (err) {
+            console.error('Failed to load meter readings:', err);
+        }
+    }
+
+    function renderReadings(readings) {
+        meterBody.innerHTML = '';
+        if (!readings.length) {
+            meterEmpty.classList.remove('hidden');
+            return;
+        }
+        meterEmpty.classList.add('hidden');
+
+        readings.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${r.reading_date}</td>
+                <td>${r.reading_value}</td>
+                <td>
+                    <button class="btn btn-danger btn-icon btn-sm" title="Delete" onclick="deleteMeterReading(${r.id})">🗑️</button>
+                </td>
+            `;
+            meterBody.appendChild(tr);
+        });
+    }
+
+    meterForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        const body = {
+            reading_date: document.getElementById('meterDate').value,
+            reading_value: parseFloat(document.getElementById('meterValue').value),
+        };
+
+        try {
+            await api('/api/meter-readings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            showStatus(meterFormStatus, '✅ Meter reading added!', 'success');
+            meterForm.reset();
+            loadMeterReadings();
+        } catch (err) {
+            showStatus(meterFormStatus, '❌ ' + err.message, 'error');
+        }
+    });
+
+    window.deleteMeterReading = async function(id) {
+        if (!confirm('Delete this reading?')) return;
+        try {
+            await api(`/api/meter-readings/${id}`, { method: 'DELETE' });
+            loadMeterReadings();
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+    };
+
+})();
+</script>
+
+</body>
+</html>
