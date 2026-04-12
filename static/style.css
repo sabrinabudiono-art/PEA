@@ -548,6 +548,94 @@ a:hover { text-decoration: underline; }
     border-bottom-left-radius: 4px;
 }
 
+/* ---------- Markdown inside chat bubbles ---------- */
+.chat-bubble p {
+    margin: 0 0 0.6rem 0;
+}
+
+.chat-bubble p:last-child {
+    margin-bottom: 0;
+}
+
+.chat-bubble h3,
+.chat-bubble h4 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 1rem 0 0.4rem 0;
+}
+
+.chat-bubble h3:first-child,
+.chat-bubble h4:first-child {
+    margin-top: 0;
+}
+
+.chat-bubble strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.chat-bubble em {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.chat-bubble ul,
+.chat-bubble ol {
+    margin: 0.5rem 0;
+    padding-left: 1.4rem;
+}
+
+.chat-bubble li {
+    margin-bottom: 0.3rem;
+    line-height: 1.5;
+}
+
+.chat-bubble li:last-child {
+    margin-bottom: 0;
+}
+
+.chat-bubble code {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--accent);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.82rem;
+}
+
+.chat-bubble pre {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1rem;
+    margin: 0.6rem 0;
+    overflow-x: auto;
+}
+
+.chat-bubble pre code {
+    background: none;
+    color: var(--text-primary);
+    padding: 0;
+    font-size: 0.82rem;
+    line-height: 1.6;
+}
+
+.chat-bubble hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.75rem 0;
+}
+
+/* Keep user bubble text unstyled from markdown */
+.chat-msg.user .chat-bubble p {
+    margin: 0;
+}
+
+.chat-msg.user .chat-bubble strong {
+    color: inherit;
+}
+
 .chat-input-row {
     display: flex;
     gap: 0.5rem;

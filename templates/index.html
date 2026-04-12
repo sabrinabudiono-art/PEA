@@ -169,6 +169,10 @@
                         <div class="chat-avatar">🤖</div>
                         <div class="chat-bubble">Hi! I'm your Personal Energy Assistant. Ask me anything about your energy usage, bills, or how to save money on electricity. 🌿</div>
                     </div>
+                    <div class="chat-suggestions" id="chatSuggestions">
+                        <p class="suggestions-label">💡 Try asking:</p>
+                        <div class="suggestion-chips" id="suggestionChips"></div>
+                    </div>
                 </div>
 
                 <div class="chat-input-row">
@@ -519,13 +523,69 @@
     const chatSendBtn = document.getElementById('chatSendBtn');
     const clearChatBtn = document.getElementById('clearChatBtn');
 
+    function formatMarkdown(text) {
+        // Escape HTML first for safety
+        let html = escapeHtml(text);
+
+        // Code blocks (```lang\n...\n```)
+        html = html.replace(/```(\w*)\n([\s\S]*?)```/g,
+            (_, lang, code) => `<pre><code class="lang-${lang}">${code.trim()}</code></pre>`);
+
+        // Inline code (`...`)
+        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+        // Bold (**...** or __...__)
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+        // Italic (*...* or _..._) — avoid matching list markers
+        html = html.replace(/(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)/g, '<em>$1</em>');
+
+        // Headings (### ... , ## ..., # ...)
+        html = html.replace(/^### (.+)$/gm, '<h4>$1</h4>');
+        html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+        html = html.replace(/^# (.+)$/gm, '<h3>$1</h3>');
+
+        // Horizontal rules (--- or ***)
+        html = html.replace(/^(---+|\*\*\*+)$/gm, '<hr>');
+
+        // Unordered lists (- item or * item)
+        html = html.replace(/^(?:[-*])\s+(.+)$/gm, '<li>$1</li>');
+        html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+
+        // Ordered lists (1. item)
+        html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+        // Wrap consecutive <li> that aren't already in <ul>
+        html = html.replace(/(?<!<\/ul>\n?)((?:<li>.*<\/li>\n?)+)(?!<\/ul>)/g,
+            (match) => {
+                // If already wrapped in <ul>, skip
+                return '<ol>' + match + '</ol>';
+            });
+
+        // Line breaks: double newline = paragraph break, single = <br>
+        html = html.replace(/\n{2,}/g, '</p><p>');
+        html = html.replace(/\n/g, '<br>');
+
+        // Wrap in paragraph tags
+        html = '<p>' + html + '</p>';
+
+        // Clean up empty paragraphs and paragraphs wrapping block elements
+        html = html.replace(/<p><\/p>/g, '');
+        html = html.replace(/<p>(<(?:h[34]|ul|ol|pre|hr)[> ])/g, '$1');
+        html = html.replace(/(<\/(?:h[34]|ul|ol|pre)>)<\/p>/g, '$1');
+        html = html.replace(/<p>(<hr>)<\/p>/g, '$1');
+
+        return html;
+    }
+
     function addChatMsg(role, text) {
         const div = document.createElement('div');
         div.className = 'chat-msg ' + role;
         const avatar = role === 'user' ? '👤' : '🤖';
+        const content = role === 'assistant' ? formatMarkdown(text) : escapeHtml(text);
         div.innerHTML = `
             <div class="chat-avatar">${avatar}</div>
-            <div class="chat-bubble">${escapeHtml(text)}</div>
+            <div class="chat-bubble">${content}</div>
         `;
         chatMessages.appendChild(div);
         chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -538,9 +598,51 @@
         return div.innerHTML;
     }
 
+    const FAQ_SUGGESTIONS = [
+        'How can I reduce my electricity bill?',
+        'What appliances use the most energy?',
+        'Summarize my energy usage',
+        'Compare my consumption to the average household',
+        'Tips for saving energy in winter',
+        'How much does standby power cost me?',
+    ];
+
+    function renderSuggestions(containerId) {
+        const container = document.getElementById(containerId || 'suggestionChips');
+        if (!container) return;
+        container.innerHTML = '';
+        FAQ_SUGGESTIONS.forEach(q => {
+            const chip = document.createElement('button');
+            chip.className = 'suggestion-chip';
+            chip.textContent = q;
+            chip.addEventListener('click', () => {
+                // Hide suggestions
+                const suggestionsWrap = document.getElementById('chatSuggestions');
+                if (suggestionsWrap) suggestionsWrap.classList.add('fade-out');
+                setTimeout(() => {
+                    if (suggestionsWrap) suggestionsWrap.remove();
+                }, 300);
+                // Send the question
+                chatInput.value = q;
+                sendChat();
+            });
+            container.appendChild(chip);
+        });
+    }
+
+    // Render initial suggestions
+    renderSuggestions();
+
     async function sendChat() {
         const question = chatInput.value.trim();
         if (!question) return;
+
+        // Remove suggestions if still visible
+        const suggestionsEl = document.getElementById('chatSuggestions');
+        if (suggestionsEl) {
+            suggestionsEl.classList.add('fade-out');
+            setTimeout(() => suggestionsEl.remove(), 300);
+        }
 
         addChatMsg('user', question);
         chatInput.value = '';
@@ -578,6 +680,13 @@
             await api('/api/chatbot/clear', { method: 'DELETE' });
             chatMessages.innerHTML = '';
             addChatMsg('assistant', 'Chat history cleared. How can I help you? 🌿');
+            // Re-add suggestion chips
+            const sugDiv = document.createElement('div');
+            sugDiv.className = 'chat-suggestions';
+            sugDiv.id = 'chatSuggestions';
+            sugDiv.innerHTML = '<p class="suggestions-label">💡 Try asking:</p><div class="suggestion-chips" id="suggestionChips"></div>';
+            chatMessages.appendChild(sugDiv);
+            renderSuggestions();
         } catch (err) {
             alert('Error clearing chat: ' + err.message);
         }
@@ -721,7 +830,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ question }),
             });
-            applianceChatAnswer.textContent = data.answer;
+            applianceChatAnswer.innerHTML = formatMarkdown(data.answer);
             applianceChatResult.classList.remove('hidden');
         } catch (err) {
             applianceChatAnswer.textContent = '❌ ' + err.message;
