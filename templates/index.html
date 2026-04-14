@@ -175,7 +175,18 @@
                     </div>
                 </div>
 
+                <!-- FAQ Panel -->
+                <div class="faq-panel hidden" id="faqPanel">
+                    <div class="faq-header">
+                        <span class="faq-title">❓ Frequently Asked Questions</span>
+                        <button class="faq-close-btn" id="faqCloseBtn" title="Close FAQ">✕</button>
+                    </div>
+                    <div class="faq-categories" id="faqCategories"></div>
+                    <div class="faq-questions" id="faqQuestions"></div>
+                </div>
+
                 <div class="chat-input-row">
+                    <button class="btn btn-faq" id="faqToggleBtn" title="Frequently Asked Questions">❓ FAQ</button>
                     <input type="text" class="form-input" id="chatInput" placeholder="Ask about your energy usage…" autocomplete="off">
                     <button class="btn btn-primary" id="chatSendBtn">Send</button>
                 </div>
@@ -549,18 +560,15 @@
         // Horizontal rules (--- or ***)
         html = html.replace(/^(---+|\*\*\*+)$/gm, '<hr>');
 
-        // Unordered lists (- item or * item)
-        html = html.replace(/^(?:[-*])\s+(.+)$/gm, '<li>$1</li>');
-        html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+        // Ordered list items — preserve original numbers as styled text
+        html = html.replace(/^(\d+)\.\s+(.+)$/gm,
+            '<div class="ol-item"><span class="ol-num">$1.</span><span class="ol-text">$2</span></div>');
 
-        // Ordered lists (1. item)
-        html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
-        // Wrap consecutive <li> that aren't already in <ul>
-        html = html.replace(/(?<!<\/ul>\n?)((?:<li>.*<\/li>\n?)+)(?!<\/ul>)/g,
-            (match) => {
-                // If already wrapped in <ul>, skip
-                return '<ol>' + match + '</ol>';
-            });
+        // Unordered lists — match entire blocks of consecutive "- …" or "* …" lines
+        html = html.replace(/((?:^[-*]\s+.+$\n?)+)/gm, (block) => {
+            const items = block.replace(/^[-*]\s+(.+)$/gm, '<li>$1</li>');
+            return '<ul>' + items + '</ul>';
+        });
 
         // Line breaks: double newline = paragraph break, single = <br>
         html = html.replace(/\n{2,}/g, '</p><p>');
@@ -571,8 +579,8 @@
 
         // Clean up empty paragraphs and paragraphs wrapping block elements
         html = html.replace(/<p><\/p>/g, '');
-        html = html.replace(/<p>(<(?:h[34]|ul|ol|pre|hr)[> ])/g, '$1');
-        html = html.replace(/(<\/(?:h[34]|ul|ol|pre)>)<\/p>/g, '$1');
+        html = html.replace(/<p>(<(?:h[34]|ul|ol|pre|hr|div)[> ])/g, '$1');
+        html = html.replace(/(<\/(?:h[34]|ul|ol|pre|div)>)<\/p>/g, '$1');
         html = html.replace(/<p>(<hr>)<\/p>/g, '$1');
 
         return html;
@@ -598,7 +606,39 @@
         return div.innerHTML;
     }
 
-    const FAQ_SUGGESTIONS = [
+    /* ---- FAQ Data ---- */
+    const FAQ_DATA = {
+        '⚡ General': [
+            'Summarize my energy usage',
+            'Compare my consumption to the average household',
+            'What is my current energy provider?',
+            'Show me my energy usage trends',
+        ],
+        '💰 Savings': [
+            'How can I reduce my electricity bill?',
+            'Tips for saving energy in winter',
+            'What are the cheapest hours to use electricity?',
+            'How much can I save by switching to LED lights?',
+        ],
+        '🔌 Appliances': [
+            'What appliances use the most energy?',
+            'How much does standby power cost me?',
+            'Should I replace my old refrigerator?',
+            'How much energy does a dishwasher use per cycle?',
+        ],
+        '📄 Billing': [
+            'Explain my latest energy bill',
+            'Why did my bill increase this month?',
+            'What is my price per kWh?',
+            'How is my base fee calculated?',
+        ],
+    };
+
+    const FAQ_CATEGORIES = Object.keys(FAQ_DATA);
+    let activeFaqCategory = FAQ_CATEGORIES[0];
+
+    /* Initial suggestion chips (quick picks from all categories) */
+    const INITIAL_SUGGESTIONS = [
         'How can I reduce my electricity bill?',
         'What appliances use the most energy?',
         'Summarize my energy usage',
@@ -611,18 +651,14 @@
         const container = document.getElementById(containerId || 'suggestionChips');
         if (!container) return;
         container.innerHTML = '';
-        FAQ_SUGGESTIONS.forEach(q => {
+        INITIAL_SUGGESTIONS.forEach(q => {
             const chip = document.createElement('button');
             chip.className = 'suggestion-chip';
             chip.textContent = q;
             chip.addEventListener('click', () => {
-                // Hide suggestions
                 const suggestionsWrap = document.getElementById('chatSuggestions');
                 if (suggestionsWrap) suggestionsWrap.classList.add('fade-out');
-                setTimeout(() => {
-                    if (suggestionsWrap) suggestionsWrap.remove();
-                }, 300);
-                // Send the question
+                setTimeout(() => { if (suggestionsWrap) suggestionsWrap.remove(); }, 300);
                 chatInput.value = q;
                 sendChat();
             });
@@ -630,8 +666,65 @@
         });
     }
 
-    // Render initial suggestions
     renderSuggestions();
+
+    /* ---- FAQ Panel ---- */
+    const faqPanel = document.getElementById('faqPanel');
+    const faqToggleBtn = document.getElementById('faqToggleBtn');
+    const faqCloseBtn = document.getElementById('faqCloseBtn');
+    const faqCategoriesEl = document.getElementById('faqCategories');
+    const faqQuestionsEl = document.getElementById('faqQuestions');
+
+    function renderFaqCategories() {
+        faqCategoriesEl.innerHTML = '';
+        FAQ_CATEGORIES.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = 'faq-cat-btn' + (cat === activeFaqCategory ? ' active' : '');
+            btn.textContent = cat;
+            btn.addEventListener('click', () => {
+                activeFaqCategory = cat;
+                renderFaqCategories();
+                renderFaqQuestions();
+            });
+            faqCategoriesEl.appendChild(btn);
+        });
+    }
+
+    function renderFaqQuestions() {
+        faqQuestionsEl.innerHTML = '';
+        const questions = FAQ_DATA[activeFaqCategory] || [];
+        questions.forEach((q, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'faq-question-btn';
+            btn.style.animationDelay = `${i * 0.05}s`;
+            btn.innerHTML = `<span class="faq-q-icon">💬</span><span>${escapeHtml(q)}</span>`;
+            btn.addEventListener('click', () => {
+                chatInput.value = q;
+                faqPanel.classList.add('hidden');
+                faqToggleBtn.classList.remove('active');
+                sendChat();
+            });
+            faqQuestionsEl.appendChild(btn);
+        });
+    }
+
+    faqToggleBtn.addEventListener('click', () => {
+        const isHidden = faqPanel.classList.contains('hidden');
+        if (isHidden) {
+            faqPanel.classList.remove('hidden');
+            faqToggleBtn.classList.add('active');
+            renderFaqCategories();
+            renderFaqQuestions();
+        } else {
+            faqPanel.classList.add('hidden');
+            faqToggleBtn.classList.remove('active');
+        }
+    });
+
+    faqCloseBtn.addEventListener('click', () => {
+        faqPanel.classList.add('hidden');
+        faqToggleBtn.classList.remove('active');
+    });
 
     async function sendChat() {
         const question = chatInput.value.trim();
@@ -643,6 +736,10 @@
             suggestionsEl.classList.add('fade-out');
             setTimeout(() => suggestionsEl.remove(), 300);
         }
+
+        // Close FAQ panel if open
+        faqPanel.classList.add('hidden');
+        faqToggleBtn.classList.remove('active');
 
         addChatMsg('user', question);
         chatInput.value = '';
