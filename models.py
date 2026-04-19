@@ -1,9 +1,11 @@
+"""SQLAlchemy ORM models for the personal energy assistant application."""
 from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
 class User(db.Model):
+    """Application user with credentials for authentication."""
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -11,6 +13,7 @@ class User(db.Model):
 
 
 class EnergyReport(db.Model):
+    """Energy consumption report (bill/invoice) for a billing period."""
     __tablename__ = 'energy_reports'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -21,6 +24,7 @@ class EnergyReport(db.Model):
 
 
 class EnergyContract(db.Model):
+    """Energy supply contract with provider pricing details."""
     __tablename__ = 'energy_contracts'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -32,6 +36,7 @@ class EnergyContract(db.Model):
 
 
 class Appliance(db.Model):
+    """Household appliance with estimated monthly kWh consumption."""
     __tablename__ = 'appliances'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -41,6 +46,7 @@ class Appliance(db.Model):
 
 
 class MeterReadings(db.Model):
+    """Point-in-time meter reading recorded by the user."""
     __tablename__ = 'meter_readings'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -49,6 +55,7 @@ class MeterReadings(db.Model):
 
 
 class Chatbot(db.Model):
+    """Persisted chat message exchanged between the user and the assistant."""
     __tablename__ = 'chatbot'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)

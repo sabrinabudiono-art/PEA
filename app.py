@@ -1,3 +1,4 @@
+"""Flask application exposing the personal energy assistant REST API and UI."""
 import os
 from datetime import date
 from flask import Flask, request, render_template, jsonify
@@ -30,9 +31,11 @@ DEFAULT_USER_EMAIL = 'admin@admin.com'
 
 @app.route('/')
 def index():
+    """Render the single-page dashboard."""
     return render_template('index.html')
 
 def _parse_date(value):
+    """Parse an ISO date string, returning ``None`` on missing or invalid input."""
     if not value:
         return None
     try:
@@ -41,6 +44,7 @@ def _parse_date(value):
         return None
 
 def _safe_float(value):
+    """Coerce a value to float, returning ``None`` if conversion fails."""
     if value is None:
         return None
     try:
@@ -50,6 +54,7 @@ def _safe_float(value):
 
 
 def _fields_to_dict(fields_list):
+    """Flatten the ``[{field_name, field_value}, ...]`` AI response into a dict."""
     result = {}
     for field in fields_list:
         name = field.get('field_name', '').lower().replace(' ', '_')
@@ -57,6 +62,7 @@ def _fields_to_dict(fields_list):
     return result
 
 def save_document_to_db(doc_type, fields_dict, filepath, markdown_text):
+    """Persist extracted contract or report fields as the matching ORM record."""
     if doc_type == 'contract':
         record = EnergyContract(
             user_id=DEFAULT_USER_ID,
@@ -82,6 +88,7 @@ def save_document_to_db(doc_type, fields_dict, filepath, markdown_text):
 
 @app.route('/api/reports', methods=['GET'])
 def list_reports():
+    """Return all energy reports for the default user, newest first."""
     reports = EnergyReport.query.filter_by(user_id=DEFAULT_USER_ID).order_by(EnergyReport.start_date.desc()).all()
     return jsonify({'reports': [
         {
@@ -96,6 +103,7 @@ def list_reports():
 
 @app.route('/api/reports/<int:report_id>', methods=['DELETE'])
 def delete_report(report_id):
+    """Delete an energy report by id, or return 404 if it does not exist."""
     report = db.session.get(EnergyReport, report_id)
     if not report:
         return jsonify({'error': 'Report not found'}), 404
@@ -105,6 +113,7 @@ def delete_report(report_id):
 
 @app.route('/api/contracts', methods=['GET'])
 def list_contracts():
+    """Return all energy contracts for the default user, newest first."""
     contracts = EnergyContract.query.filter_by(user_id=DEFAULT_USER_ID).order_by(EnergyContract.start_date.desc()).all()
     return jsonify({'contracts': [
         {
@@ -120,6 +129,7 @@ def list_contracts():
 
 @app.route('/api/contracts/<int:contract_id>', methods=['DELETE'])
 def delete_contract(contract_id):
+    """Delete an energy contract by id, or return 404 if it does not exist."""
     contract = db.session.get(EnergyContract, contract_id)
     if not contract:
         return jsonify({'error': 'Contract not found'}), 404
@@ -129,6 +139,7 @@ def delete_contract(contract_id):
 
 @app.route('/api/upload', methods=['POST'])
 def upload():
+    """Upload a PDF, extract energy fields via AI, and persist the result."""
     if "file" not in request.files:
         return jsonify({'error': 'No file provided'}), 400
 
@@ -170,9 +181,11 @@ def upload():
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
 def build_chat_context():
+    """Render the user's stored energy data as plain text for the chatbot prompt."""
     lines = []
 
     def fmt_date(d):
+        """Format a date as YYYY-MM-DD, or ``'N/A'`` when missing."""
         return d.strftime('%Y-%m-%d') if d else 'N/A'
 
     reports = EnergyReport.query.filter_by(user_id=DEFAULT_USER_ID).all()
@@ -214,6 +227,7 @@ def build_chat_context():
     return "\n".join(lines)
 
 def chat_with_ai(user_message):
+    """Persist the user message, query OpenAI with recent history, and store the reply."""
     db.session.add(Chatbot(
         user_id=DEFAULT_USER_ID, role="user", message=user_message))
     db.session.commit()
@@ -250,6 +264,7 @@ def chat_with_ai(user_message):
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
+    """Answer a chatbot question using the user's stored energy context."""
     body = request.get_json(silent=True) or {}
     question = body.get("question", "").strip()
 
@@ -264,12 +279,14 @@ def chat():
 
 @app.route('/api/chatbot/clear', methods=['DELETE'])
 def chatbot_clear():
+    """Delete the full chatbot conversation history for the default user."""
     Chatbot.query.filter_by(user_id=DEFAULT_USER_ID).delete()
     db.session.commit()
     return jsonify({'message': 'Successfully cleared chatbot'}), 200
 
 @app.route('/api/appliances', methods=['GET'])
 def list_appliances():
+    """Return all appliances registered for the default user."""
     appliances = Appliance.query.filter_by(user_id=DEFAULT_USER_ID).all()
     return jsonify({'appliances': [
         {
@@ -283,6 +300,7 @@ def list_appliances():
 
 @app.route('/api/appliances', methods=['POST'])
 def add_appliance():
+    """Create a new appliance record from the JSON request body."""
     body = request.get_json(silent=True) or {}
     name = body.get("appliance_name", "").strip()
     if not name:
@@ -309,6 +327,7 @@ def add_appliance():
 
 @app.route('/api/appliances/<int:appliance_id>', methods=['PUT'])
 def update_appliance(appliance_id):
+    """Update an existing appliance's name, type, and monthly consumption."""
     appliance = db.session.get(Appliance, appliance_id)
     if not appliance:
         return jsonify({'error': 'Appliance not found'}), 404
@@ -335,6 +354,7 @@ def update_appliance(appliance_id):
 
 @app.route('/api/appliances/<int:appliance_id>', methods=['DELETE'])
 def delete_appliance(appliance_id):
+    """Delete an appliance by id, or return 404 if it does not exist."""
     appliance = db.session.get(Appliance, appliance_id)
     if not appliance:
         return jsonify({'error': 'Appliance not found'}), 404
@@ -344,6 +364,7 @@ def delete_appliance(appliance_id):
 
 @app.route('/api/appliances/chat', methods=['POST'])
 def appliance_chat():
+    """Ask OpenAI to estimate an appliance's monthly kWh consumption."""
     body = request.get_json(silent=True) or {}
     question = body.get("question", "").strip()
     if not question:
@@ -374,6 +395,7 @@ def appliance_chat():
 
 @app.route('/api/meter-readings', methods=['GET'])
 def read_meter_readings():
+    """Return all meter readings for the default user, oldest first."""
     readings = (
         MeterReadings.query.filter_by(user_id=DEFAULT_USER_ID).order_by(MeterReadings.reading_date.asc()).all()
     )
@@ -391,6 +413,7 @@ def read_meter_readings():
 
 @app.route('/api/meter-readings', methods=['POST'])
 def add_meter_reading():
+    """Create a new meter reading from the JSON request body."""
     body = request.get_json(silent=True) or {}
     reading_date = _parse_date(body.get("reading_date"))
     reading_value = _safe_float(body.get("reading_value"))
@@ -419,6 +442,7 @@ def add_meter_reading():
 
 @app.route('/api/meter-readings/<int:reading_id>', methods=['PUT'])
 def update_meter_reading(reading_id):
+    """Update the date and value of an existing meter reading."""
     reading = db.session.get(MeterReadings, reading_id)
     if not reading:
         return jsonify({'error': 'Meter reading not found'}), 404
@@ -447,6 +471,7 @@ def update_meter_reading(reading_id):
 
 @app.route('/api/meter-readings/<int:reading_id>', methods=['DELETE'])
 def delete_meter_reading(reading_id):
+    """Delete a meter reading by id, or return 404 if it does not exist."""
     reading = db.session.get(MeterReadings, reading_id)
     if not reading:
         return jsonify({'error': 'Meter reading not found'}), 404

@@ -1,3 +1,4 @@
+"""OpenAI-backed extraction of structured energy fields from document text."""
 import json
 import os
 from openai import OpenAI
@@ -43,10 +44,11 @@ Return the answer as valid JSON with this exact structure:
 """
 
 def extract_energy_data(markdown_text: str) -> dict:
-    """
-    extract energy data from Markdown text with the help of OpenAI
-    :param markdown_text:
-    :return: a dict with "doc_type" and "fields"
+    """Classify an energy document and extract its structured fields via OpenAI.
+
+    :param markdown_text: Markdown text extracted from a PDF contract or bill.
+    :return: dict containing the detected ``doc_type`` and a list of ``fields``.
+    :raises ValueError: if the model response cannot be parsed as JSON.
     """
     response = client.chat.completions.create(
         model="gpt-4.1-mini",

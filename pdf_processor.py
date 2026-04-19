@@ -1,10 +1,11 @@
+"""PDF text extraction helpers used to prepare documents for AI parsing."""
 import pymupdf4llm
 
 def extract_text_from_pdf(pdf_path: str) -> str:
-    """
-    Extract text from PDF file
-    :param pdf_path:
-    :return: Markdown text of the PDF file
+    """Convert a PDF file to Markdown-formatted text.
+
+    :param pdf_path: filesystem path to the PDF to read.
+    :return: Markdown representation of the PDF contents.
     """
     markdown_text = pymupdf4llm.to_markdown(pdf_path)
     return markdown_text
