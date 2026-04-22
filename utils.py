@@ -1,6 +1,7 @@
 import os
 from datetime import date
 from models import db, EnergyContract, EnergyReport
+from services.rag_service import store_document_chunks
 
 DEFAULT_USER_ID = 1
 DEFAULT_USER_NAME = 'admin'
@@ -36,7 +37,7 @@ def _fields_to_dict(fields_list):
     return result
 
 def save_document_to_db(doc_type, fields_dict, filepath, markdown_text):
-    """Persist extracted contract or report fields as the matching ORM record."""
+    """Persist extracted contract or report fields and embed text for RAG."""
     if doc_type == 'contract':
         record = EnergyContract(
             user_id=DEFAULT_USER_ID,
@@ -57,5 +58,14 @@ def save_document_to_db(doc_type, fields_dict, filepath, markdown_text):
 
     db.session.add(record)
     db.session.commit()
+
+    # --- RAG: chunk and embed the original document text ---
+    if markdown_text and markdown_text.strip():
+        store_document_chunks(
+            user_id=DEFAULT_USER_ID,
+            source_type=doc_type,
+            source_id=record.id,
+            markdown_text=markdown_text,
+        )
 
     return record

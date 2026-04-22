@@ -54,6 +54,19 @@ class MeterReadings(db.Model):
     reading_value = db.Column(db.Float, nullable=False)
 
 
+class DocumentChunk(db.Model):
+    """Chunk of document text with its embedding vector for RAG retrieval."""
+    __tablename__ = 'document_chunks'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    source_type = db.Column(db.String(20), nullable=False)
+    source_id = db.Column(db.Integer, nullable=False)
+    chunk_index = db.Column(db.Integer, nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    embedding = db.Column(db.LargeBinary, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 class Chatbot(db.Model):
     """Persisted chat message exchanged between the user and the assistant."""
     __tablename__ = 'chatbot'
